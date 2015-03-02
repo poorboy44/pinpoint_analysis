@@ -2,11 +2,13 @@
 import sys
 import json
 from datetime import datetime
+from collections import OrderedDict
 import copy
+import operator
 
 
 
-#map(sum,zip([1,2],[0,5])) 
+#map(sum,zip([1,2],[0,5]))
 
 def split_data(line):
     # split line
@@ -32,46 +34,41 @@ def increment_counts(data,d_list,student):
                 d[vsim_date][1]+=1
 
     # dates >> strings
-    printable = {"scores":{}}
-    date_list = d.keys()
-    date_list.sort()
-    for item in date_list:
-        printable["scores"][str(item)] = d[item]
-
-    printable["student"] = student
-
+    date_counts = [ (str(value[0]), value[1]) for value in sorted(d.items(), key = operator.itemgetter(0)) ]
+    #date_counts = OrderedDict(date_counts)
+    printable={"scores":date_counts,"student":student}
     return printable
 
 if __name__ == '__main__':
 
     #define globals
     prev_student, now, d_list = define_globals()
+    with open("test.json","wb") as f:
+        for line in sys.stdin:
 
-    for line in sys.stdin:
+            # parse line
+            current_student, current_class, current_date, test_type, test_score = split_data(line)
 
-        # parse line
-        current_student, current_class, current_date, test_type, test_score = split_data(line)
+            # check to see if we have a new student
+            if current_student != prev_student and prev_student != -1:
+                if len(d_list['best']) == 0:
+                    d_list['best'] = [now]
 
-        # check to see if we have a new student
-        if current_student != prev_student and prev_student != -1:
-            if len(d_list['best']) == 0:
-                d_list['best'] = [now]
+                # order dates
+                d_list['best'].sort()
+                d_list['ml'].sort()
 
-            # order dates
-            d_list['best'].sort()
-            d_list['ml'].sort()
+                # create a dict of vsim counts
+                data=dict(zip(d_list['best'],range(0,len(d_list['best']))))
 
-            # create a dict of vsim counts
-            data=dict(zip(d_list['best'],range(0,len(d_list['best']))))
+                #print increment_counts(data,d_list,current_student)
+                print json.dumps(increment_counts(data,d_list,prev_student))
 
-            #print increment_counts(data,d_list,current_student)
-            print json.dumps(increment_counts(data,d_list,prev_student))
+                # reset counts for each new student
+                d_list = {'ml':[], 'best':[]}
 
-            # reset counts for each new student
-            d_list = {'ml':[], 'best':[]}
+            # append values based on test_type
+            d_list[test_type].append(current_date)
 
-        # append values based on test_type
-        d_list[test_type].append(current_date)
-
-        # set prev student
-        prev_student = copy.deepcopy(current_student)
+            # set prev student
+            prev_student = copy.deepcopy(current_student)
