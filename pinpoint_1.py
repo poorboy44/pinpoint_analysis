@@ -45,6 +45,9 @@ with open('out.txt', 'w') as out:
 			elif 'best' in rec.keys():
 				best = rec['best']
 				out.write("{}|{}|{}|best|{}\n".format(student, classname, dt, best))
+			elif 'overall_ml' in rec.keys():
+				overall_ml = rec['overall_ml']
+				out.write("{}|{}|{}|overall_ml|{}\n".format(student, classname, dt, overall_ml))
 		except:
 			error_num+=1
 			sys.stderr.write( "Error on line:{}\n".format(line_num))
