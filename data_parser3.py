@@ -24,9 +24,23 @@ def define_globals():
     d_list = {'ml':[], 'best':[], 'overall_ml':[]}
     return prev_student, now, d_list, fileName
 
+def evaluate_vector(test_score,count,lst):
+    # keeps the vectors length at v_len
+    # starts counting the number of test taken at or beyond 20.
+    v_len=20
+    if count > v_len:
+        lst[v_len - 1] = lst[v_len - 1]+1
+    elif count == v_len:
+        lst.append(1)
+    else:
+        lst.append(test_score)
+    return lst
+
 def increment_counts(data,d_list,student):
     singl_d = OrderedDict()
+    outer_counter = 0
     for vsim in data.iteritems():
+        outer_counter+=1
         rank = vsim[0]
         vsim_date_obj = vsim[1][0]
         vsim_date_str = vsim[1][1]
@@ -37,10 +51,14 @@ def increment_counts(data,d_list,student):
         else:
             vsim_test_score = vsim[1][2]
 
+        # increment test counts and appends values to the test_vectors
         ml_count_on_date = vsim[1][3]
         oml_count_on_date = vsim[1][4]
         singl_d[rank] = [vsim_date_str,vsim_test_score,ml_count_on_date,[],oml_count_on_date,[]]
+
+        inner_ml_counter = 0
         for ml in d_list['ml']:
+            inner_ml_counter+=1
             ml_date_obj = ml[0]
 
             # compare dates
@@ -48,10 +66,11 @@ def increment_counts(data,d_list,student):
 
                 # incredment ml count
                 singl_d[rank][2] += 1
-                #append test score
-                singl_d[rank][3].append(ml[2])
+                singl_d[rank][3]=evaluate_vector(ml[2],singl_d[rank][2],singl_d[rank][3])
 
+        inner_oml_counter = 0
         for oml in d_list['overall_ml']:
+            inner_oml_counter += 1
             oml_date_obj = oml[0]
 
             # compare dates
@@ -60,12 +79,22 @@ def increment_counts(data,d_list,student):
                 # incredment overall_ml count
                 singl_d[rank][4] += 1
                 # append test score
-                singl_d[rank][5].append(oml[2])
+                singl_d[rank][5]=evaluate_vector(oml[2],singl_d[rank][4],singl_d[rank][5])
+                #singl_d[rank][5].append(oml[2])
+    # add null values for those students that have not yet taken 20+ exams
+    for rank in singl_d:
+        length1 = len(singl_d[rank][3])
+        length2 = len(singl_d[rank][5])
+        if length1 < 20:
+            singl_d[rank][3].extend([None]*(20-length1))
+        if length2 < 20:
+            singl_d[rank][5].extend([None]*(20-length2))
 
     printable={"scores":singl_d,"student":student}
     return printable
 
 def median(lst):
+    lst = [ x for x in lst if x is not None]
     lst = sorted(lst)
     n = len(lst)
     if n < 1:
@@ -76,6 +105,7 @@ def median(lst):
         return float(sum(lst[(n/2)-1:(n/2)+1]))/2.0
 
 def mean(lst):
+    lst = [ x for x in lst if x is not None]
     n = float(len(lst))
     if n < 1:
         return None
@@ -84,12 +114,14 @@ def mean(lst):
 
 def _ss(data):
     """Return sum of square deviations of sequence data."""
+    data = [ x for x in data if x is not None]
     c = mean(data)
     ss = sum((x-c)**2 for x in data)
     return ss
 
 def pstdev(data):
     """Calculates the population standard deviation."""
+    data = [ x for x in data if x is not None]
     n = len(data)
     if n < 2:
         return None
@@ -148,24 +180,23 @@ def process_data(d_list,now,prev_student):
     print_results(results,f)
 
     # reset counts for each new student
-    d_list = {'ml':[], 'best':[], 'overall_ml':[]}
+    return {'ml':[], 'best':[], 'overall_ml':[]}
 
 
 
 if __name__ == '__main__':
     #define globals
     prev_student, now, d_list, fileName = define_globals()
-    sys.stderr.write("Header:\nstudent_name, vsim_counts, vsim date, vsim score, prepU_counts, prepU_median, prepU_mean, prepU_stdev prepU_vector, overall_ml_counts, overall_ml_median, overall_ml_mean, overall_ml_stdev, overall_ml vector\n\n")
+    sys.stderr.write("Header:\nstudent_name, vsim_counts, vsim date, vsim score, prepU_counts, prepU_median, prepU_mean, prepU_stdev, prepU_vector (20 values), overall_ml_counts, overall_ml_median, overall_ml_mean, overall_ml_stdev, overall_ml vector (20 values)\n\n")
 
     with open(fileName,"wb") as f:
         for line in sys.stdin:
-
             # parse line
             current_student, current_class, current_date, test_type, test_score = split_data(line)
 
             # check new student
             if current_student != prev_student and prev_student != -1:
-                process_data(d_list,now,prev_student)
+                d_list=process_data(d_list,now,prev_student)
 
             # append [current_date, date_string, test_score,count] based on test_type, ml_count, overall_ml_count
             d_list[test_type].append([current_date,str(current_date),test_score,0,0])
